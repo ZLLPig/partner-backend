@@ -8,6 +8,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.zllUserCenter.findfriendbackend.exception.BusinessException;
 import com.zllUserCenter.findfriendbackend.exception.ErrorCode;
+import com.zllUserCenter.findfriendbackend.mapper.TagMapper;
 import com.zllUserCenter.findfriendbackend.model.domain.User;
 import com.zllUserCenter.findfriendbackend.service.UserService;
 import com.zllUserCenter.findfriendbackend.mapper.UserMapper;
@@ -38,6 +39,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     @Resource
     private final UserMapper userMapper;
+    @Resource
+    private TagMapper tagMapper;
 
 
     public UserServiceImpl(UserMapper userMapper) {
@@ -178,23 +181,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
 
     /**
-     * 根据标签搜索用户
+     * 根据名称搜索用户
      *
-     * @param tagNameList
+     * @param userName
      * @return
      */
     @Override
-    public List<User> searchUser(List<String> tagNameList) {
-        if (CollectionUtils.isEmpty(tagNameList)) {
-
+    public List<User> searchUser(List<String> userName, HttpServletRequest request) {
+        if (CollectionUtils.isEmpty(userName)) {
+           throw new BusinessException(ErrorCode.PARAMS_ERROR,"请求参数错误");
         }
         return new ArrayList<>();
-    }
-
-    @Override
-    public int userLogout(HttpServletRequest request) {
-        request.getSession().removeAttribute(USER_LOGIN_STATUS);
-        return 1;
     }
 
     /**
@@ -213,13 +210,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         List<User> userList = userMapper.selectList(queryWrapper);
         Gson gson = new Gson();
         //2.在内存中判断是否包含要求的标签
-        userList.stream().filter(user -> {
+        return userList.stream().filter(user -> {
             String tagStr = user.getTags();
-            if(StringUtils.isBlank(tagStr)){
-                return false;
-            }
-            Set<String> tempTagNameSet = gson.fromJson(tagStr, new TypeToken<Set<String>>() {
-            }.getType());
+            Set<String> tempTagNameSet = gson.fromJson(tagStr, new TypeToken<Set<String>>() {}.getType());
             tempTagNameSet = Optional.ofNullable(tempTagNameSet).orElse(new HashSet<>());
             for (String tagName : tagNameList) {
                 if (!tempTagNameSet.contains(tagName)) {
@@ -228,26 +221,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             }
             return true;
         }).map(this::getSafetyUser).collect(Collectors.toList());
-        return userList;
     }
 
 
     /**
-     * 标签搜索用户(SQL)
-     * @param tagNameList
+     * 用户注销
+     *
+     * @param request
      * @return
      */
-    @Deprecated
-    private List<User> searchUserByTagsSQL(List<String> tagNameList){
-        if (CollectionUtils.isEmpty(tagNameList)) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数错误");
-        }
-        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        for(String tagName : tagNameList){
-            queryWrapper.like("tags",tagName);
-        }
-        List<User> userList = userMapper.selectList(queryWrapper);
-        return userList.stream().map(this::getSafetyUser).collect(Collectors.toList());
+    @Override
+    public int userLogout(HttpServletRequest request) {
+        request.getSession().removeAttribute(USER_LOGIN_STATUS);
+        return 1;
     }
 
 

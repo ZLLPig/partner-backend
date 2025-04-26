@@ -2,6 +2,7 @@ package com.zllUserCenter.findfriendbackend.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 
+import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.zllUserCenter.findfriendbackend.common.BaseResponse;
 import com.zllUserCenter.findfriendbackend.common.ResultUtils;
 import com.zllUserCenter.findfriendbackend.exception.BusinessException;
@@ -78,7 +79,7 @@ public class userController {
 
 
     /**
-     * 用户查询
+     * 根据名称查询用户
      *
      * @param username
      * @param request
@@ -102,6 +103,20 @@ public class userController {
         List<User> list = userList.stream().map(user ->
         userService.getSafetyUser(user)).collect(Collectors.toList());
         return ResultUtils.success(list);
+    }
+
+    /**
+     * 根据标签搜索用户
+     * @param tagNameList
+     * @return
+     */
+    @GetMapping("/search/tags")
+    public BaseResponse<List<User>> searchUserByTags(@RequestParam(required = false) List<String> tagNameList){
+        if(CollectionUtils.isEmpty(tagNameList)){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"请求参数错误");
+        }
+        List<User> userList = userService.searchUserByTags(tagNameList);
+        return ResultUtils.success(userList);
     }
 
 
