@@ -24,7 +24,8 @@ import static com.zllUserCenter.findfriendbackend.constant.UserConstant.USER_LOG
 
 
 @RestController
-@RequestMapping("/user")
+@RequestMapping("/user")  //统一前缀
+@CrossOrigin ( origins = {"http://localhost:5173"})
 public class userController {
 
     @Resource
