@@ -24,6 +24,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.zllUserCenter.findfriendbackend.constant.UserConstant.ADMIN_ROLE;
 import static com.zllUserCenter.findfriendbackend.constant.UserConstant.USER_LOGIN_STATUS;
 
 /**
@@ -235,6 +236,60 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         request.getSession().removeAttribute(USER_LOGIN_STATUS);
         return 1;
     }
+
+    @Override
+    public Integer updateUser(User user,User LoginUser) {
+        long userId = user.getId();
+        if(userId <= 0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"请求参数错误");
+        }
+        //如果是管理员可以更新任何用户
+        //如果不是管理员 仅能修改自己的数据
+        if(!isAdmin(LoginUser) || userId != LoginUser.getId()) {
+            throw new BusinessException(ErrorCode.NO_AUTH,"缺少权限");
+        }
+            User oldUser = userMapper.selectById(userId);
+            if(oldUser == null){
+                throw new BusinessException(ErrorCode.NOT_FOUND_ERROR,"请求数据不存在");
+            }
+            return userMapper.updateById(user);
+    }
+
+    @Override
+    public User getLoginUser(HttpServletRequest request) {
+        if(request == null){
+            return null;
+        }
+        Object userObj =  request.getSession().getAttribute(USER_LOGIN_STATUS);
+        if(userObj == null){
+            throw new BusinessException(ErrorCode.NO_AUTH,"用户未登录");
+        }
+        return (User) userObj;
+    }
+
+    /**
+     * 用户权限
+     * @param request
+     * @return
+     */
+    @Override
+    public boolean isAdmin(HttpServletRequest request){
+        //身份鉴权，仅管理员可查询
+        //拿到用户信息
+        User user = (User) request.getSession().getAttribute(USER_LOGIN_STATUS);
+        return user != null && user.getUserRole() == ADMIN_ROLE;
+    }
+
+    /**
+     * 用户权限
+     * @param userLogin
+     * @return
+     */
+    @Override
+    public boolean isAdmin(User userLogin){
+        return userLogin != null && userLogin.getUserRole() == ADMIN_ROLE;
+    }
+
 
 
 }
