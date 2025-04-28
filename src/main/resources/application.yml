@@ -8,7 +8,6 @@ spring:
       matching-strategy: ANT_PATH_MATCHER
   application:
     name: FindFriend-backend
-
   # 数据库配置
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -17,6 +16,15 @@ spring:
     password: Z20041027
 
   # mybatis-plus配置
+    # redis
+  redis:
+    port: 6379
+    host: localhost
+    database: 0
+    # session 失效事件
+  session:
+    timeout: 86400
+    store-type: redis
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: false
