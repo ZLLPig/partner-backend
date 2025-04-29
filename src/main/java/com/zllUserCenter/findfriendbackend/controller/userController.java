@@ -11,6 +11,7 @@ import com.zllUserCenter.findfriendbackend.model.domain.User;
 import com.zllUserCenter.findfriendbackend.model.domain.request.UserLoginRequest;
 import com.zllUserCenter.findfriendbackend.model.domain.request.UserRegisterRequest;
 import com.zllUserCenter.findfriendbackend.service.UserService;
+import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
@@ -59,7 +60,7 @@ public class userController {
      * @return
      */
     @PostMapping("/login")
-    public BaseResponse<User> userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletRequest request){
+    public BaseResponse<User> userLogin(@RequestBody UserRegisterRequest userLoginRequest, HttpServletRequest request){
 
         if(userLoginRequest == null){
             //输入参数校验，属于预期内的常规错误，不需要记录完整堆栈

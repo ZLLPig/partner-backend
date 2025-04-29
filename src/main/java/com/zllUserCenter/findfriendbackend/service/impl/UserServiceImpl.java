@@ -237,6 +237,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         return 1;
     }
 
+    /**
+     * 更新用户信息
+     *
+     * @param user
+     * @return
+     */
     @Override
     public Integer updateUser(User user,User LoginUser) {
         long userId = user.getId();
