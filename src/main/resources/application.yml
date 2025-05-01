@@ -2,6 +2,9 @@ server:
   port: 8125
   servlet:
     context-path: /api
+    session:
+      cookie:
+        domain: localhost
 spring:
   mvc:
     path match:
@@ -15,7 +18,6 @@ spring:
     username: root
     password: Z20041027
 
-  # mybatis-plus配置
     # redis
   redis:
     port: 6379

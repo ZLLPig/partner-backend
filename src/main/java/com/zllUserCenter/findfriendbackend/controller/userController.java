@@ -7,12 +7,15 @@ import com.zllUserCenter.findfriendbackend.common.BaseResponse;
 import com.zllUserCenter.findfriendbackend.common.ResultUtils;
 import com.zllUserCenter.findfriendbackend.exception.BusinessException;
 import com.zllUserCenter.findfriendbackend.exception.ErrorCode;
+import com.zllUserCenter.findfriendbackend.exception.ThrowUtils;
 import com.zllUserCenter.findfriendbackend.model.domain.User;
 import com.zllUserCenter.findfriendbackend.model.domain.request.UserLoginRequest;
 import com.zllUserCenter.findfriendbackend.model.domain.request.UserRegisterRequest;
 import com.zllUserCenter.findfriendbackend.service.UserService;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
@@ -27,6 +30,7 @@ import static com.zllUserCenter.findfriendbackend.constant.UserConstant.USER_LOG
 @RestController
 @RequestMapping("/user")  //统一前缀
 @CrossOrigin ( origins = {"http://localhost:5173"})
+@Slf4j
 public class userController {
 
     @Resource
@@ -38,46 +42,28 @@ public class userController {
      * @return
      */
     @PostMapping("/register")
-    public BaseResponse<Long> userRegister(@RequestBody UserRegisterRequest userRegisterRequest) throws BusinessException {
-        if(userRegisterRequest == null){
-           throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数错误");
-        }
+    public BaseResponse<Long> userRegister(@RequestBody UserRegisterRequest userRegisterRequest) {
+        ThrowUtils.throwIf(userRegisterRequest == null, ErrorCode.PARAMS_ERROR);
         String userAccount = userRegisterRequest.getUserAccount();
         String userPassword = userRegisterRequest.getUserPassword();
         String checkPassword = userRegisterRequest.getCheckPassword();
-        if(StringUtils.isAnyBlank(userAccount,userPassword,checkPassword)){
-            return null;
-        }
-        long result = userService.userRegister(userAccount,userPassword,checkPassword);
+        long result = userService.userRegister(userAccount, userPassword, checkPassword);
         return ResultUtils.success(result);
     }
 
 
     /**
      * 用户登录
-     * @param userLoginRequest
-     * @param request
-     * @return
      */
     @PostMapping("/login")
-    public BaseResponse<User> userLogin(@RequestBody UserRegisterRequest userLoginRequest, HttpServletRequest request){
-
-        if(userLoginRequest == null){
-            //输入参数校验，属于预期内的常规错误，不需要记录完整堆栈
-            return ResultUtils.error(ErrorCode.PARAMS_ERROR,"请求参数错误");
-        }
-
+    public BaseResponse<User> userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletRequest request){
+        ThrowUtils.throwIf(userLoginRequest == null, ErrorCode.PARAMS_ERROR);
         String userAccount = userLoginRequest.getUserAccount();
         String userPassword = userLoginRequest.getUserPassword();
-
-        if(StringUtils.isAnyBlank(userAccount,userPassword)){
-            return ResultUtils.error(ErrorCode.PARAMS_ERROR,"请求参数错误");
-        }
-
-        User user = userService.userLogin(userAccount,userPassword,request);
-        return ResultUtils.success(user);
-
+        User loginUser = userService.userLogin(userAccount, userPassword, request);
+        return ResultUtils.success(loginUser);
     }
+
 
 
     /**
@@ -166,7 +152,7 @@ public class userController {
     }
 
     @PostMapping("/update")
-    public BaseResponse<Integer> updateUser(User user,HttpServletRequest request){
+    public BaseResponse<Integer> updateUser(@RequestBody User user,HttpServletRequest request){
         //判断用户是否为空
         if(user == null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"请求参数错误");

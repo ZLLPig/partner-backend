@@ -73,6 +73,8 @@ public interface UserService extends IService<User> {
      */
     Integer updateUser(User user,User LoginUser);
 
+    String getEncryptPassword(String userPassword);
+
     /**
      * 获取当前登录用户
      * @param request

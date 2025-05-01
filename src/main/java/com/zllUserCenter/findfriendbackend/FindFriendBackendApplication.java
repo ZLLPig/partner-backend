@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
 @MapperScan("com.zllUserCenter.findfriendbackend.mapper")
+
 public class FindFriendBackendApplication {
 
     public static void main(String[] args) {

@@ -1,5 +1,6 @@
 package com.zllUserCenter.findfriendbackend.service.impl;
 
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 
@@ -8,24 +9,22 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.zllUserCenter.findfriendbackend.exception.BusinessException;
 import com.zllUserCenter.findfriendbackend.exception.ErrorCode;
+import com.zllUserCenter.findfriendbackend.manage.model.StpKit;
 import com.zllUserCenter.findfriendbackend.mapper.TagMapper;
 import com.zllUserCenter.findfriendbackend.model.domain.User;
 import com.zllUserCenter.findfriendbackend.service.UserService;
 import com.zllUserCenter.findfriendbackend.mapper.UserMapper;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.zllUserCenter.findfriendbackend.constant.UserConstant.ADMIN_ROLE;
-import static com.zllUserCenter.findfriendbackend.constant.UserConstant.USER_LOGIN_STATUS;
+import static com.zllUserCenter.findfriendbackend.constant.UserConstant.*;
 
 /**
 * @author ZLL
@@ -51,108 +50,105 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     /**
      * 用户注册
-     *
-     * @param userAccount
-     * @param userPassword
-     * @param checkPassword
+     * @param userAccount 用户账号
+     * @param userPassword 用户密码
+     * @param checkPassword 校验密码
      * @return
      */
     @Override
     public long userRegister(String userAccount, String userPassword, String checkPassword) {
-        //校验所有参数不能为空
-        if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword)) {
-            return -1;
+        // 1. 校验
+        if(StrUtil.hasBlank(userAccount,userPassword,checkPassword)){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"参数为空");
         }
-        //校验用户长度不能小于四
-        if (userAccount.length() < 4) {
-            return -1;
+        if(userPassword.length()<4){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"用户账号过短");
         }
-        //校验密码长度不能小于八
-        if (userPassword.length() < 8) {
-            return -1;
+        if(userPassword.length()<8 || checkPassword.length()<8){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"用户密码过短");
         }
-        //账户不能包含特殊字符
-        String validPattern = "[`~!@#$%^&*()+=|{}':;',\\\\[\\\\].<>/?~！@#￥%……&*（）——+|{}【】‘；：”“’。，、？]";
-        Matcher matcher = Pattern.compile(validPattern).matcher(userAccount);
-        if (matcher.find()) {
-            return -1;
+        if(!userPassword.equals(checkPassword)){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"两次输入的密码不一致");
         }
-        //校验两次密码是否一致
-        if (!userPassword.equals(checkPassword)) {
-            return -1;
-        }
-        //用户不能重复
+        // 2. 检查是否重复
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("userAccount", userAccount);
-        long count = userMapper.selectCount(queryWrapper);
-        if (count > 0) {
-            return -1;
+        queryWrapper.eq("userAccount",userAccount);
+        Long count = this.baseMapper.selectCount(queryWrapper);
+        if(count>0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"账号重复");
         }
-        //密码加密
-        final String SALT = "Zll";
-        String encryptPassword = DigestUtils.md5DigestAsHex((userPassword + SALT).getBytes());
-        //向用户数据库插入数据
+        // 3. 加密
+        String encryptPassword = getEncryptPassword(userPassword);
+        // 4. 插入数据
         User user = new User();
         user.setUserAccount(userAccount);
         user.setUserPassword(encryptPassword);
-        //调用 MyBatis-Plus 提供的 save() 方法，将 user 对象插入数据库
         boolean saveResult = this.save(user);
         if (!saveResult) {
-            return -1;
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注册失败，数据库错误");
         }
-        //如果插入成功，返回新用户的数据库ID
         return user.getId();
     }
 
 
-    /**
-     * 用户登录
-     *
-     * @param userAccount
-     * @param userPassword
-     * @param request
-     * @return
-     */
     @Override
-    public User userLogin(String userAccount, String userPassword, HttpServletRequest request) {
-        //校验所有参数不能为空
-        if (StringUtils.isAnyBlank(userAccount, userPassword)) {
-            return null;
+    public User userLogin(@RequestBody String userAccount, String userPassword, HttpServletRequest request) {
+        // 1. 校验
+        if (StrUtil.hasBlank(userAccount, userPassword)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
         }
-        //校验用户长度不能小于四
         if (userAccount.length() < 4) {
-            return null;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号错误");
         }
-        //校验密码长度不能小于八
         if (userPassword.length() < 8) {
-            return null;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码错误");
         }
-        //账户不能包含特殊字符
-        String validPattern = "[`~!@#$%^&*()+=|{}':;',\\\\[\\\\].<>/?~！@#￥%……&*（）——+|{}【】‘；：”“’。，、？]";
-        Matcher matcher = Pattern.compile(validPattern).matcher(userAccount);
-        if (matcher.find()) {
-            return null;
-        }
-        //加密
-        final String SALT = "Zll";
-        String encryptPassword = DigestUtils.md5DigestAsHex((userPassword + SALT).getBytes());
-        //查询用户是否存在
+        // 2. 加密
+        String encryptPassword = getEncryptPassword(userPassword);
+        // 查询用户是否存在
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("userAccount", userAccount);
         queryWrapper.eq("userPassword", encryptPassword);
-        User user = userMapper.selectOne(queryWrapper);
+        User user = this.baseMapper.selectOne(queryWrapper);
+        // 用户不存在
         if (user == null) {
-            log.info("user login failed,userPassword cannot match userAccount");
-            return null;
+            log.info("user login failed, userAccount cannot match userPassword");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在或密码错误");
         }
+        // 3. 记录用户的登录态
+        request.getSession().setAttribute(USER_LOGIN_STATUS, user);
+        StpKit.SPACE.login(user.getId());
+        StpKit.SPACE.getSession().set(USER_LOGIN_STATUS, user);
+        return user;
+    }
 
-        // 用户脱敏
-        User safetyUser = getSafetyUser(user);
+    /**
+     * 获取加密后的密码
+     * @param userPassword
+     * @return
+     */
+    @Override
+    public String getEncryptPassword(String userPassword) {
+        // 盐值，混淆密码
+        final String SALT = "zll";
+        return DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
+    }
 
-        //记录用户的登录态
-        request.getSession().setAttribute(USER_LOGIN_STATUS, safetyUser);
-
-        return null;
+    @Override
+    public User getLoginUser(HttpServletRequest request) {
+        // 判断是否已经登录
+        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATUS);
+        User currentUser = (User) userObj;
+        if(currentUser == null || currentUser.getId() == 0){
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
+        }
+        // 从数据库中查询
+        Long userId = currentUser.getId();
+        currentUser = this.getById(userId);
+        if(currentUser == null){
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
+        }
+        return currentUser;
     }
 
 
@@ -259,18 +255,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                 throw new BusinessException(ErrorCode.NOT_FOUND_ERROR,"请求数据不存在");
             }
             return userMapper.updateById(user);
-    }
-
-    @Override
-    public User getLoginUser(HttpServletRequest request) {
-        if(request == null){
-            return null;
-        }
-        Object userObj =  request.getSession().getAttribute(USER_LOGIN_STATUS);
-        if(userObj == null){
-            throw new BusinessException(ErrorCode.NO_AUTH,"用户未登录");
-        }
-        return (User) userObj;
     }
 
     /**
