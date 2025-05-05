@@ -65,7 +65,6 @@ public class userController {
     }
 
 
-
     /**
      * 根据名称查询用户
      *
@@ -151,6 +150,13 @@ public class userController {
         return ResultUtils.success(safetyUser);
     }
 
+
+    /**
+     * 更新用户数据
+     * @param user
+     * @param request
+     * @return
+     */
     @PostMapping("/update")
     public BaseResponse<Integer> updateUser(@RequestBody User user,HttpServletRequest request){
         //判断用户是否为空
@@ -161,6 +167,17 @@ public class userController {
         Integer result = userService.updateUser(user,loginUser);
         return ResultUtils.success(result);
     }
+
+
+    @GetMapping("/recommend")
+     public BaseResponse<List<User>> recommendUsers(HttpServletRequest request){
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        List<User> userList = userService.list(queryWrapper);
+        List<User> list = userList.stream().map(user -> userService.getSafetyUser(user)).collect(Collectors.toList());
+        return ResultUtils.success(list);
+    }
+
+
 
 
     /**
@@ -175,6 +192,7 @@ public class userController {
         int result = userService.userLogout(request);
        return ResultUtils.success(result);
     }
+
 
 
 
