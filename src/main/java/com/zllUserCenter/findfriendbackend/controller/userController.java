@@ -1,5 +1,6 @@
 package com.zllUserCenter.findfriendbackend.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
@@ -12,18 +13,18 @@ import com.zllUserCenter.findfriendbackend.model.domain.User;
 import com.zllUserCenter.findfriendbackend.model.domain.request.UserLoginRequest;
 import com.zllUserCenter.findfriendbackend.model.domain.request.UserRegisterRequest;
 import com.zllUserCenter.findfriendbackend.service.UserService;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.util.DigestUtils;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static com.zllUserCenter.findfriendbackend.constant.UserConstant.ADMIN_ROLE;
 import static com.zllUserCenter.findfriendbackend.constant.UserConstant.USER_LOGIN_STATUS;
 
 
@@ -35,6 +36,8 @@ public class userController {
 
     @Resource
     private UserService userService;
+    @Resource
+    private RedisTemplate<String, Object> redisTemplate;
 
     /**
      * 用户注册
@@ -169,12 +172,34 @@ public class userController {
     }
 
 
+    /**
+     * 首页展示用户
+     * @param PageSize
+     * @param PageNum
+     * @param request
+     * @return
+     */
     @GetMapping("/recommend")
-     public BaseResponse<List<User>> recommendUsers(HttpServletRequest request){
+     public BaseResponse<Page<User>> recommendUsers(long PageSize, long PageNum, HttpServletRequest request){
+        User loginUser = userService.getLoginUser(request);
+        String redisKey = String.format("user:recommend:%s",loginUser.getId());
+        ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
+        //如果有缓存，直接读缓存
+        Page<User> userPage = (Page<User>) valueOperations.get(redisKey);
+        if(userPage != null){
+            return ResultUtils.success(userPage);
+        }
+        //没有缓存，查询数据库
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        List<User> userList = userService.list(queryWrapper);
-        List<User> list = userList.stream().map(user -> userService.getSafetyUser(user)).collect(Collectors.toList());
-        return ResultUtils.success(list);
+        //分页
+        userPage = userService.page(new Page<>(PageNum,PageSize),queryWrapper);
+        //写缓存
+        try{
+            valueOperations.set(redisKey,userPage,30000, TimeUnit.MICROSECONDS);
+        } catch (Exception e) {
+            log.error("redis set error",e);
+        }
+        return ResultUtils.success(userPage);
     }
 
 
