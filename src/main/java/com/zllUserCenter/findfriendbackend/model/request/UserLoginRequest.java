@@ -1,4 +1,4 @@
-package com.zllUserCenter.findfriendbackend.model.domain.request;
+package com.zllUserCenter.findfriendbackend.model.request;
 
 import lombok.Data;
 

@@ -2,26 +2,23 @@ package com.zllUserCenter.findfriendbackend.common;
 
 import lombok.Data;
 
+import java.io.Serializable;
+
+/**
+ * 通用分页请求
+ */
 @Data
-public class PageRequest {
+public class PageRequest implements Serializable {
 
-    /**
-     * 当前页号
-     */
-    private int current = 1;
-
+    private static final long serialVersionUID = -53543624131574753L;
     /**
      * 页面大小
      */
     private int pageSize = 10;
 
     /**
-     * 排序字段
+     * 当前第几页
      */
-    private String sortField;
+    private int pageNum = 1;
 
-    /**
-     * 排序顺序（默认降序）
-     */
-    private String sortOrder = "descend";
 }

@@ -12,9 +12,8 @@ import lombok.Data;
 @TableName(value ="team")
 @Data
 public class Team {
-    /**
-     * 
-     */
+
+
     @TableId(type = IdType.AUTO)
     private Long id;
 
