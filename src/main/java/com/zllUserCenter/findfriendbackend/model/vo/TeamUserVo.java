@@ -1,20 +1,23 @@
-package com.zllUserCenter.findfriendbackend.model.domain;
+package com.zllUserCenter.findfriendbackend.model.vo;
 
-import com.baomidou.mybatisplus.annotation.*;
 
-import java.util.Date;
 import lombok.Data;
 
+import java.io.Serializable;
+import java.util.Date;
+
+
 /**
- * 队伍表
- * @TableName team
+ * 队伍信息（脱敏）
  */
-@TableName(value ="team")
 @Data
-public class Team {
+public class TeamUserVo implements Serializable {
 
 
-    @TableId(type = IdType.AUTO)
+    private static final long serialVersionUID = -2607792788980528889L;
+    /**
+     * id
+     */
     private Long id;
 
     /**
@@ -25,7 +28,7 @@ public class Team {
     /**
      * 用户id
      */
-    private long userId;
+    private Integer userId;
 
     /**
      * 最大人数
@@ -37,10 +40,6 @@ public class Team {
      */
     private Date expireTime;
 
-    /**
-     * 密码
-     */
-    private String password;
 
     /**
      * 公开 - 0 私有 - 1  加密 - 2
@@ -63,8 +62,8 @@ public class Team {
     private Date updateTime;
 
     /**
-     * 是否删除
+     * 创建人用户信息
      */
-    @TableLogic
-    private Integer isDelete;
+    UserVo createUser;
+
 }

@@ -22,7 +22,7 @@ public class UserTeam {
     /**
      * 用户id
      */
-    private Integer userId;
+    private long userId;
 
     /**
      * 队伍id

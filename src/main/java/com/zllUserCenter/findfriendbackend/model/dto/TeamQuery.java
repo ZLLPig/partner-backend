@@ -18,9 +18,14 @@ public class TeamQuery extends PageRequest {
     private String name;
 
     /**
+     * 搜索内容（同时对名称和描述搜索）
+     */
+    private String searchText;
+
+    /**
      * 用户id
      */
-    private Integer userId;
+    private Long userId;
 
     /**
      * 最大人数
