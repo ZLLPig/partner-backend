@@ -11,7 +11,7 @@ import lombok.Data;
  */
 @TableName(value ="team")
 @Data
-public class Team {
+public class Team extends UserTeam {
 
 
     @TableId(type = IdType.AUTO)
@@ -67,4 +67,5 @@ public class Team {
      */
     @TableLogic
     private Integer isDelete;
+
 }

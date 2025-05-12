@@ -4,6 +4,7 @@ import com.zllUserCenter.findfriendbackend.model.domain.Team;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.zllUserCenter.findfriendbackend.model.domain.User;
 import com.zllUserCenter.findfriendbackend.model.dto.TeamQuery;
+import com.zllUserCenter.findfriendbackend.model.request.TeamJoinRequest;
 import com.zllUserCenter.findfriendbackend.model.request.TeamUpdateRequest;
 import com.zllUserCenter.findfriendbackend.model.vo.TeamUserVo;
 
@@ -41,4 +42,13 @@ public interface TeamService extends IService<Team> {
      * @return
      */
     boolean updateTeam(TeamUpdateRequest teamUpdateRequest,User loginUser);
+
+
+    /**
+     * 加入队伍
+     * @param teamJoinRequest
+     * @param loginUser
+     * @return
+     */
+    boolean joinTeam(TeamJoinRequest teamJoinRequest, User loginUser);
 }

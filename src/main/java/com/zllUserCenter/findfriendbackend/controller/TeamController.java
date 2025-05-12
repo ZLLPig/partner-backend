@@ -10,6 +10,7 @@ import com.zllUserCenter.findfriendbackend.model.domain.Team;
 import com.zllUserCenter.findfriendbackend.model.domain.User;
 import com.zllUserCenter.findfriendbackend.model.dto.TeamQuery;
 import com.zllUserCenter.findfriendbackend.model.request.TeamAddRequest;
+import com.zllUserCenter.findfriendbackend.model.request.TeamJoinRequest;
 import com.zllUserCenter.findfriendbackend.model.request.TeamUpdateRequest;
 import com.zllUserCenter.findfriendbackend.model.vo.TeamUserVo;
 import com.zllUserCenter.findfriendbackend.service.TeamService;
@@ -111,5 +112,14 @@ public class TeamController {
         return ResultUtils.success(resultPage);
     }
 
+    @PostMapping("/join")
+     public BaseResponse<Boolean> joinTeam(@RequestBody TeamJoinRequest teamJoinRequest,HttpServletRequest request){
+        if(teamJoinRequest == null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User loginUser = userService.getLoginUser(request);
+        boolean result = teamService.joinTeam(teamJoinRequest,loginUser);
+        return ResultUtils.success(result);
+    }
 
 }
