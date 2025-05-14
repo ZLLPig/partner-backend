@@ -9,10 +9,7 @@ import com.zllUserCenter.findfriendbackend.exception.ErrorCode;
 import com.zllUserCenter.findfriendbackend.model.domain.Team;
 import com.zllUserCenter.findfriendbackend.model.domain.User;
 import com.zllUserCenter.findfriendbackend.model.dto.TeamQuery;
-import com.zllUserCenter.findfriendbackend.model.request.TeamAddRequest;
-import com.zllUserCenter.findfriendbackend.model.request.TeamJoinRequest;
-import com.zllUserCenter.findfriendbackend.model.request.TeamQuitRequest;
-import com.zllUserCenter.findfriendbackend.model.request.TeamUpdateRequest;
+import com.zllUserCenter.findfriendbackend.model.request.*;
 import com.zllUserCenter.findfriendbackend.model.vo.TeamUserVo;
 import com.zllUserCenter.findfriendbackend.service.TeamService;
 import com.zllUserCenter.findfriendbackend.service.UserService;
@@ -51,18 +48,6 @@ public class TeamController {
         BeanUtils.copyProperties(teamAddRequest, team);
         long teamId = teamService.addTeam(team, loginUser);
         return ResultUtils.success(teamId);
-    }
-
-    @PostMapping("/delete")
-    public BaseResponse<Boolean> deleteTeam(@RequestBody long id) {
-        if (id <= 0) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR);
-        }
-        boolean result = teamService.removeById(id);
-        if (!result) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "删除失败");
-        }
-        return ResultUtils.success(true);
     }
 
     @PostMapping("/update")
@@ -131,6 +116,19 @@ public class TeamController {
         User loginUser = userService.getLoginUser(request);
         boolean result = teamService.quitTeam(teamQuitRequest,loginUser);
         return ResultUtils.success(result);
+    }
+
+    @PostMapping("/delete")
+    public BaseResponse<Boolean> deleteTeam(@RequestBody TeamDeleteRequest teamDeleteRequest, HttpServletRequest request) {
+        if (teamDeleteRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User loginUser = userService.getLoginUser(request);
+        boolean result = teamService.deleteTeam(teamDeleteRequest,loginUser);
+        if (!result) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "删除失败");
+        }
+        return ResultUtils.success(true);
     }
 
 }

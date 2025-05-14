@@ -11,7 +11,7 @@ import lombok.Data;
  */
 @TableName(value ="team")
 @Data
-public class Team extends UserTeam {
+public class Team{
 
 
     @TableId(type = IdType.AUTO)

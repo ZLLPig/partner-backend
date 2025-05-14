@@ -11,6 +11,7 @@ import com.zllUserCenter.findfriendbackend.model.domain.User;
 import com.zllUserCenter.findfriendbackend.model.domain.UserTeam;
 import com.zllUserCenter.findfriendbackend.model.dto.TeamQuery;
 import com.zllUserCenter.findfriendbackend.model.enums.TeamStatusEnum;
+import com.zllUserCenter.findfriendbackend.model.request.TeamDeleteRequest;
 import com.zllUserCenter.findfriendbackend.model.request.TeamJoinRequest;
 import com.zllUserCenter.findfriendbackend.model.request.TeamQuitRequest;
 import com.zllUserCenter.findfriendbackend.model.request.TeamUpdateRequest;
@@ -29,6 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.servlet.resource.ResourceUrlProvider;
 
 import javax.annotation.Resource;
@@ -294,6 +296,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
     }
 
     @Override
+    @Transactional( rollbackFor = Exception.class)
     public boolean quitTeam(TeamQuitRequest teamQuitRequest, User loginUser) {
         if (teamQuitRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -358,6 +361,32 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
                 return userTeamService.remove(queryWrapper);
             }
         }
+    }
+
+    @Override
+    @Transactional( rollbackFor = Exception.class)
+//    事务注解 如果数据不一致 就会回滚 不会产生脏数据
+    public boolean deleteTeam(TeamDeleteRequest teamDeleteRequest, User loginUser) {
+        //2. 校验队伍是否存在
+        Long id = teamDeleteRequest.getId();
+        Team team = this.getById(id);
+        if(team == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "队伍不存在");
+        }
+        //3. 校验你是不是队伍的队长
+        if(team.getUserId() != loginUser.getId()) {
+            throw new BusinessException(ErrorCode.NO_AUTH, "无权限删除");
+        }
+        //4. 移除所有加入队伍的关联信息
+        Long teamId = team.getId();
+        QueryWrapper<UserTeam> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("teamId", teamId);
+        boolean result = userTeamService.remove(queryWrapper);
+        if(!result){
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "删除失败");
+        }
+        //5. 删除队伍
+        return this.removeById(teamId);
     }
 }
 
