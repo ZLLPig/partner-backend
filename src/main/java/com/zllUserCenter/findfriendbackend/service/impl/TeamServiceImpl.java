@@ -140,6 +140,10 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
             if (id != null && id > 0) {
                 queryWrapper.eq("id", id);
             }
+            List<Long> idList = teamQuery.getIdList();
+            if(CollectionUtils.isNotEmpty(idList)){
+                queryWrapper.in("id",idList);
+            }
             String searchText = teamQuery.getSearchText();
             if (StringUtils.isNotBlank(searchText)) {
                 queryWrapper.and(qw -> qw.like("name", searchText).or().like("description", searchText));
@@ -325,11 +329,8 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         long userNum = userTeamService.count(queryWrapper);
         //队伍只剩1人，解散
         if (userNum == 1) {
-            //删除队伍和所有加入队伍的关系
-            this.removeById(teamId);
-            queryWrapper = new QueryWrapper<>();
-            queryWrapper.eq("teamId", teamId);
-            return userTeamService.remove(queryWrapper);
+            //删除队伍
+           this.removeById(teamId);
         } else {
             //队伍至少还有两人
             //是队长
@@ -361,6 +362,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
                 return userTeamService.remove(queryWrapper);
             }
         }
+        return true;
     }
 
     @Override

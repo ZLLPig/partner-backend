@@ -25,7 +25,7 @@ public class Team{
     /**
      * 用户id
      */
-    private long userId;
+    private Long userId;
 
     /**
      * 最大人数

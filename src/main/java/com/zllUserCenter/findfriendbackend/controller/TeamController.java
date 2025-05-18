@@ -8,18 +8,24 @@ import com.zllUserCenter.findfriendbackend.exception.BusinessException;
 import com.zllUserCenter.findfriendbackend.exception.ErrorCode;
 import com.zllUserCenter.findfriendbackend.model.domain.Team;
 import com.zllUserCenter.findfriendbackend.model.domain.User;
+import com.zllUserCenter.findfriendbackend.model.domain.UserTeam;
 import com.zllUserCenter.findfriendbackend.model.dto.TeamQuery;
 import com.zllUserCenter.findfriendbackend.model.request.*;
 import com.zllUserCenter.findfriendbackend.model.vo.TeamUserVo;
 import com.zllUserCenter.findfriendbackend.service.TeamService;
 import com.zllUserCenter.findfriendbackend.service.UserService;
+import com.zllUserCenter.findfriendbackend.service.UserTeamService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.resource.ResourceUrlProvider;
 
 import javax.servlet.http.HttpServletRequest;
+import java.sql.Array;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/team")  //统一前缀
@@ -31,11 +37,13 @@ public class TeamController {
     private final TeamService teamService;
     private final UserService userService;
     private final ResourceUrlProvider resourceUrlProvider;
+    private final UserTeamService userTeamService;
 
-    public TeamController(TeamService teamService, UserService userService, ResourceUrlProvider resourceUrlProvider) {
+    public TeamController(TeamService teamService, UserService userService, ResourceUrlProvider resourceUrlProvider, UserTeamService userTeamService) {
         this.teamService = teamService;
         this.userService = userService;
         this.resourceUrlProvider = resourceUrlProvider;
+        this.userTeamService = userTeamService;
     }
 
     @PostMapping("/add")
@@ -130,5 +138,46 @@ public class TeamController {
         }
         return ResultUtils.success(true);
     }
+
+    /**
+     * 获取我创建的队伍
+     * @param teamQuery
+     * @param request
+     * @return
+     */
+    @GetMapping("/list/my")
+    public BaseResponse<List<TeamUserVo>> listMyTeam(TeamQuery teamQuery, HttpServletRequest request) {
+        if (teamQuery == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User loginUser = userService.getLoginUser(request);
+        teamQuery.setUserId(loginUser.getId());
+        List<TeamUserVo> teamList = teamService.listTeam(teamQuery, true);
+        return ResultUtils.success(teamList);
+    }
+
+    /**
+     * 获取我加入的队伍
+     * @param teamQuery
+     * @param request
+     * @return
+     */
+    @GetMapping("/list/myJoin")
+    public BaseResponse<List<TeamUserVo>> listMyJoinTeam(TeamQuery teamQuery, HttpServletRequest request) {
+        if (teamQuery == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User loginUser = userService.getLoginUser(request);
+        QueryWrapper<UserTeam> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("userId", loginUser.getId());
+        List<UserTeam> userTeamList = userTeamService.list(queryWrapper);
+        Map<Long, List<UserTeam>> listMap = userTeamList.stream()
+                .collect(Collectors.groupingBy(UserTeam::getTeamId));
+        List<Long> idList = new ArrayList<>(listMap.keySet());
+        teamQuery.setIdList(idList);
+        List<TeamUserVo> teamList = teamService.listTeam(teamQuery, true);
+        return ResultUtils.success(teamList);
+    }
+
 
 }

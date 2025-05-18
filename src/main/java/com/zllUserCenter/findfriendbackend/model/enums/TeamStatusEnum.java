@@ -6,9 +6,9 @@ package com.zllUserCenter.findfriendbackend.model.enums;
  */
 public enum TeamStatusEnum {
 
-    PUBLIC(1,"公开"),
-    PRIVATE(2,"私有"),
-    SECRET(3,"加密");
+    PUBLIC(0,"公开"),
+    PRIVATE(1,"私有"),
+    SECRET(2,"加密");
 
     private int value;
 

@@ -28,7 +28,7 @@ public class TeamUserVo implements Serializable {
     /**
      * 用户id
      */
-    private Integer userId;
+    private Long userId;
 
     /**
      * 最大人数
