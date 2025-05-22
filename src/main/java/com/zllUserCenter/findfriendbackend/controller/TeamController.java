@@ -20,6 +20,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.resource.ResourceUrlProvider;
 
+import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.sql.Array;
 import java.util.ArrayList;
@@ -34,10 +35,14 @@ import java.util.stream.Collectors;
 public class TeamController {
 
 
+    @Resource
     private final TeamService teamService;
+    @Resource
     private final UserService userService;
-    private final ResourceUrlProvider resourceUrlProvider;
+    @Resource
     private final UserTeamService userTeamService;
+    @Resource
+    private final ResourceUrlProvider resourceUrlProvider;
 
     public TeamController(TeamService teamService, UserService userService, ResourceUrlProvider resourceUrlProvider, UserTeamService userTeamService) {
         this.teamService = teamService;
@@ -128,7 +133,7 @@ public class TeamController {
 
     @PostMapping("/delete")
     public BaseResponse<Boolean> deleteTeam(@RequestBody TeamDeleteRequest teamDeleteRequest, HttpServletRequest request) {
-        if (teamDeleteRequest == null) {
+        if (teamDeleteRequest == null || teamDeleteRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         User loginUser = userService.getLoginUser(request);
