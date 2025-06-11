@@ -2,6 +2,7 @@ package com.zllUserCenter.findfriendbackend.service;
 
 import com.zllUserCenter.findfriendbackend.model.domain.User;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.zllUserCenter.findfriendbackend.model.vo.UserVo;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -85,4 +86,12 @@ public interface UserService extends IService<User> {
     boolean isAdmin(HttpServletRequest request);
 
     boolean isAdmin(User userLogin);
+
+    /**
+     * 匹配用户
+     * @param num
+     * @param loginUser
+     * @return
+     */
+    List<User> matchUsers(long num, User loginUser);
 }

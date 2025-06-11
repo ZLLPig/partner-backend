@@ -12,6 +12,7 @@ import com.zllUserCenter.findfriendbackend.exception.ThrowUtils;
 import com.zllUserCenter.findfriendbackend.model.domain.User;
 import com.zllUserCenter.findfriendbackend.model.request.UserLoginRequest;
 import com.zllUserCenter.findfriendbackend.model.request.UserRegisterRequest;
+import com.zllUserCenter.findfriendbackend.model.vo.UserVo;
 import com.zllUserCenter.findfriendbackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -23,6 +24,7 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.prefs.BackingStoreException;
 import java.util.stream.Collectors;
 
 import static com.zllUserCenter.findfriendbackend.constant.UserConstant.USER_LOGIN_STATUS;
@@ -202,14 +204,24 @@ public class userController {
         return ResultUtils.success(userPage);
     }
 
+    @GetMapping("/match")
+    public BaseResponse<List<User>> matchUsers(long num,HttpServletRequest request){
+        if(num == 0 || num >= 20){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(userService.matchUsers(num,loginUser));
+    }
 
 
 
-    /**
-     * 用户注销
-     * @param request
-     * @return
-     */
+
+
+        /**
+         * 用户注销
+         * @param request
+         * @return
+         */
     public BaseResponse<Integer> userLogOut(@RequestBody UserLoginRequest userLoginRequest, HttpServletRequest request) {
        if(request == null){
            throw new BusinessException(ErrorCode.PARAMS_ERROR,"请求参数错误");
@@ -217,6 +229,8 @@ public class userController {
         int result = userService.userLogout(request);
        return ResultUtils.success(result);
     }
+
+
 
 
 
