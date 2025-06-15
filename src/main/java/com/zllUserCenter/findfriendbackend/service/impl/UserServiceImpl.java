@@ -1,5 +1,6 @@
 package com.zllUserCenter.findfriendbackend.service.impl;
 
+import cn.hutool.core.lang.Pair;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
@@ -13,10 +14,8 @@ import com.zllUserCenter.findfriendbackend.exception.ErrorCode;
 import com.zllUserCenter.findfriendbackend.manage.model.StpKit;
 import com.zllUserCenter.findfriendbackend.mapper.TagMapper;
 import com.zllUserCenter.findfriendbackend.model.domain.User;
-import com.zllUserCenter.findfriendbackend.model.vo.UserVo;
 import com.zllUserCenter.findfriendbackend.service.UserService;
 import com.zllUserCenter.findfriendbackend.mapper.UserMapper;
-import jdk.jfr.internal.tool.PrettyWriter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
@@ -289,30 +288,52 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     @Override
     public List<User> matchUsers(long num, User loginUser) {
-        List<User> userList = this.list();
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.isNotNull("tags");
+        queryWrapper.select("id","tags");
+        List<User> userList = this.list(queryWrapper);
+
         String tags = loginUser.getTags();
         Gson gson = new Gson();
         List<String> tagList = gson.fromJson(tags, new TypeToken<List<String>>() {
         }.getType());
-        SortedMap<Integer, Long> indexDistanceMap = new TreeMap<>();
-        for (int i = 0;i < userList.size(); i++) {
+        // 用户列表的下表 => 相似度'
+        List<Pair<User,Long>> list = new ArrayList<>();
+        // 依次计算当前用户和所有用户的相似度
+        for (int i = 0; i <userList.size(); i++) {
             User user = userList.get(i);
             String userTags = user.getTags();
-            //无标签
-            if(StringUtils.isBlank(userTags)){
+            //无标签的 或当前用户为自己
+            if (StringUtils.isBlank(userTags) || user.getId() == loginUser.getId()){
                 continue;
             }
-            List<String> userTagList = gson.fromJson(userTags,new TypeToken<List<String>>() {
+            List<String> userTagList = gson.fromJson(userTags, new TypeToken<List<String>>() {
             }.getType());
             //计算分数
             long distance = AlgorithmUtils.minDistance(tagList, userTagList);
-            indexDistanceMap.put(i, distance);
+            list.add(new Pair<>(user,distance));
         }
-        List<Integer> maxIndexDistance = indexDistanceMap.keySet().stream().limit(num).collect(Collectors.toList());
-        List<User> userVOList = maxIndexDistance.stream()
-                .map(index -> getSafetyUser(userList.get(index)))
+        //按编辑距离有小到大排序
+        List<Pair<User, Long>> topUserPairList = list.stream()
+                .sorted((a, b) -> (int) (a.getValue() - b.getValue()))
+                .limit(num)
                 .collect(Collectors.toList());
-        return userVOList;
+        //有顺序的userID列表
+        List<Long> userListVo = topUserPairList.stream().map(pari -> pari.getKey().getId()).collect(Collectors.toList());
+
+        //根据id查询user完整信息
+        QueryWrapper<User> userQueryWrapper = new QueryWrapper<>();
+        userQueryWrapper.in("id",userListVo);
+        Map<Long, List<User>> userIdUserListMap = this.list(userQueryWrapper).stream()
+                .map(user -> getSafetyUser(user))
+                .collect(Collectors.groupingBy(User::getId));
+
+        // 因为上面查询打乱了顺序，这里根据上面有序的userID列表赋值
+        List<User> finalUserList = new ArrayList<>();
+        for (Long userId : userListVo){
+            finalUserList.add(userIdUserListMap.get(userId).get(0));
+        }
+        return finalUserList;
     }
 
 }

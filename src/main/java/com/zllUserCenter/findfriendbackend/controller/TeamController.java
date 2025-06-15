@@ -26,6 +26,7 @@ import java.sql.Array;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
@@ -95,6 +96,20 @@ public class TeamController {
         }
         boolean Admin = userService.isAdmin(request);
         List<TeamUserVo> teamList = teamService.listTeam(teamQuery, Admin);
+        //判断当前用户是否已加入队伍
+        List<Long> teamIdList = teamList.stream().map(TeamUserVo::getId).collect(Collectors.toList());
+        QueryWrapper<UserTeam> userTeamQueryWrapper = new QueryWrapper<>();
+        try{
+            User loginUser = userService.getLoginUser(request);
+            userTeamQueryWrapper.eq("userId", loginUser.getId());
+            userTeamQueryWrapper.in("teamId", teamIdList);
+            List<UserTeam> userTeamList = userTeamService.list(userTeamQueryWrapper);
+            Set<Long> hasJoinTeamId = userTeamList.stream().map(UserTeam::getId).collect(Collectors.toSet());
+            teamList.forEach(team -> {
+                boolean hasJoinTeam = hasJoinTeamId.contains(team.getId());
+                team.setHasJoin(hasJoinTeam);
+            });
+        }catch (Exception e){}
         return ResultUtils.success(teamList);
     }
 
