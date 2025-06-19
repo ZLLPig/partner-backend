@@ -3,6 +3,7 @@ package com.zllUserCenter.findfriendbackend.service.impl;
 import java.util.Date;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.zllUserCenter.findfriendbackend.exception.BusinessException;
 import com.zllUserCenter.findfriendbackend.exception.ErrorCode;
@@ -25,9 +26,12 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.math3.ml.neuralnet.twod.util.QuantizationError;
 import org.apache.poi.hssf.record.DVALRecord;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -36,6 +40,7 @@ import org.springframework.web.servlet.resource.ResourceUrlProvider;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author ZLL
@@ -51,6 +56,8 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
     @Resource
     @Lazy
     private UserService userService;
+    @Resource
+    private RedissonClient redissonClient;
 
 
     /**
@@ -141,8 +148,8 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
                 queryWrapper.eq("id", id);
             }
             List<Long> idList = teamQuery.getIdList();
-            if(CollectionUtils.isNotEmpty(idList)){
-                queryWrapper.in("id",idList);
+            if (CollectionUtils.isNotEmpty(idList)) {
+                queryWrapper.in("id", idList);
             }
             String searchText = teamQuery.getSearchText();
             if (StringUtils.isNotBlank(searchText)) {
@@ -239,15 +246,6 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         if (teamJoinRequest == null) {
             throw new BusinessException(ErrorCode.NULL_ERROR);
         }
-        //用户最多加入5个队伍
-        long userId = loginUser.getId();
-        //QueryWrapper<UserTeam> 的泛型参数是 UserTeam，说明这个 QueryWrapper 是用于构建 UserTeam 实体类的查询条件。
-        QueryWrapper<UserTeam> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("userId", userId);
-        long hasJoinNum = userTeamService.count(queryWrapper);
-        if (hasJoinNum >= 5) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户最多加入5个队伍");
-        }
         //队伍必须存在
         Long teamId = teamJoinRequest.getTeamId();
         if (teamId == null || teamId <= 0) {
@@ -262,13 +260,6 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         if (team.getExpireTime() != null && team.getExpireTime().before(new Date())) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "队伍已过期");
         }
-        //只能加入未满的队伍
-        QueryWrapper<UserTeam> queryWrapper1 = new QueryWrapper<>();
-        queryWrapper1.eq("teamId", teamId);
-        long teamHasJoinNum = userTeamService.count(queryWrapper1);
-        if (teamHasJoinNum >= team.getMaxNum()) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "队伍已满");
-        }
         //禁止加入私有队伍
         Integer teamStatus = team.getStatus();
         TeamStatusEnum teamEnumValue = TeamStatusEnum.getTeamEnumValue(teamStatus);
@@ -282,25 +273,70 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
                 throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码错误");
             }
         }
-        //不能重复加入已加入的队伍
-        QueryWrapper<UserTeam> userTeamQueryWrapper = new QueryWrapper<>();
-        userTeamQueryWrapper.eq("userId", userId);
-        userTeamQueryWrapper.eq("teamId", teamId);
-        long hasUserJoinNum = userTeamService.count(userTeamQueryWrapper);
-        if (hasUserJoinNum > 0) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户已加入该队伍");
+        RLock lock = redissonClient.getLock("friend:join_team");
+        try{
+            while (true){
+            if(lock.tryLock(0,-1, TimeUnit.MILLISECONDS)) {
+                for (Long userId : userService.getById()) {
+                    QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+                    Page<User> userPage = userService.page(new Page<>(1, 20), queryWrapper);
+                    String redisKey = String.format("user:recommend:%s", userId);
+                    ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
+                    //写缓存
+                    try {
+                        //设置缓存，key为redisKey，value为userPage，过期时间为30000毫秒
+                        valueOperations.set(redisKey, userPage, 30000, TimeUnit.MICROSECONDS);
+                    } catch (Exception e) {
+                        //记录错误日志
+                        log.error("redis set error", e);
+                    }
+                }
+            }
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }finally {
+            if(lock.isHeldByCurrentThread()){
+                lock.unlock();
+            }
         }
-        //修改队伍信息
-        UserTeam userTeam = new UserTeam();
-        userTeam.setUserId(userId);
-        userTeam.setTeamId(teamId);
-        userTeam.setJoinTime(new Date());
-        // .save() 是 MyBatis-Plus 提供的 通用 Service 层方法，用于将数据实体对象插入数据库
-        return userTeamService.save(userTeam);
+        synchronized (this) {
+            //用户最多加入5个队伍
+            long userId = loginUser.getId();
+            //QueryWrapper<UserTeam> 的泛型参数是 UserTeam，说明这个 QueryWrapper 是用于构建 UserTeam 实体类的查询条件。
+            QueryWrapper<UserTeam> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("userId", userId);
+            long hasJoinNum = userTeamService.count(queryWrapper);
+            if (hasJoinNum >= 5) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户最多加入5个队伍");
+            }
+            //不能重复加入已加入的队伍
+            QueryWrapper<UserTeam> userTeamQueryWrapper = new QueryWrapper<>();
+            userTeamQueryWrapper.eq("userId", userId);
+            userTeamQueryWrapper.eq("teamId", teamId);
+            long hasUserJoinNum = userTeamService.count(userTeamQueryWrapper);
+            if (hasUserJoinNum > 0) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户已加入该队伍");
+            }
+            //只能加入未满的队伍
+            QueryWrapper<UserTeam> queryWrapper1 = new QueryWrapper<>();
+            queryWrapper1.eq("teamId", teamId);
+            long teamHasJoinNum = userTeamService.count(queryWrapper1);
+            if (teamHasJoinNum >= team.getMaxNum()) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "队伍已满");
+            }
+            //修改队伍信息
+            UserTeam userTeam = new UserTeam();
+            userTeam.setUserId(userId);
+            userTeam.setTeamId(teamId);
+            userTeam.setJoinTime(new Date());
+            // .save() 是 MyBatis-Plus 提供的 通用 Service 层方法，用于将数据实体对象插入数据库
+            return userTeamService.save(userTeam);
+        }
     }
 
     @Override
-    @Transactional( rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class)
     public boolean quitTeam(TeamQuitRequest teamQuitRequest, User loginUser) {
         if (teamQuitRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -330,7 +366,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         //队伍只剩1人，解散
         if (userNum == 1) {
             //删除队伍
-           this.removeById(teamId);
+            this.removeById(teamId);
         } else {
             //队伍至少还有两人
             //是队长
@@ -357,7 +393,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
                 queryWrapper.eq("userId", userId);
                 queryWrapper.eq("teamId", teamId);
                 return userTeamService.remove(queryWrapper);
-            }else{
+            } else {
                 //不是队长，直接删除记录
                 return userTeamService.remove(queryWrapper);
             }
@@ -366,17 +402,17 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
     }
 
     @Override
-    @Transactional( rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class)
 //    事务注解 如果数据不一致 就会回滚 不会产生脏数据
     public boolean deleteTeam(TeamDeleteRequest teamDeleteRequest, User loginUser) {
         //2. 校验队伍是否存在
         Long id = teamDeleteRequest.getId();
         Team team = this.getById(id);
-        if(team == null) {
+        if (team == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "队伍不存在");
         }
         //3. 校验你是不是队伍的队长
-        if(team.getUserId() != loginUser.getId()) {
+        if (team.getUserId() != loginUser.getId()) {
             throw new BusinessException(ErrorCode.NO_AUTH, "无权限删除");
         }
         //4. 移除所有加入队伍的关联信息
@@ -384,7 +420,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         QueryWrapper<UserTeam> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("teamId", teamId);
         boolean result = userTeamService.remove(queryWrapper);
-        if(!result){
+        if (!result) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "删除失败");
         }
         //5. 删除队伍

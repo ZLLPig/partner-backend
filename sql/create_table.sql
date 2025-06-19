@@ -17,6 +17,9 @@ create table team
 )
     comment '队伍表';
 
+ALTER TABLE team ADD COLUMN createUser int comment '创建人用户id';
+
+
 -- 用户_队伍关系表
 create table user_team
 (
