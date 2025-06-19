@@ -200,7 +200,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
                 continue;
             }
             User user = userService.getById(userId);
-//            用来脱敏
+           //用来脱敏
             TeamUserVo teamUserVo = new TeamUserVo();
             BeanUtils.copyProperties(team, teamUserVo);
             //脱敏用户信息
@@ -210,7 +210,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
                 //将脱敏后的用户信息（UserVo）关联到 TeamUserVo 中。
                 teamUserVo.setCreateUser(userVo);
             }
-//            将组装好的 TeamUserVo 加入结果列表，最终返回给前端
+            //将组装好的 TeamUserVo 加入结果列表，最终返回给前端
             teamUserVoList.add(teamUserVo);
         }
         return teamUserVoList;
@@ -271,33 +271,6 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         if (TeamStatusEnum.SECRET.equals(teamEnumValue)) {
             if (StringUtils.isBlank(password) || !password.equals(teamJoinRequest.getPassword())) {
                 throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码错误");
-            }
-        }
-        RLock lock = redissonClient.getLock("friend:join_team");
-        try{
-            while (true){
-            if(lock.tryLock(0,-1, TimeUnit.MILLISECONDS)) {
-                for (Long userId : userService.getById()) {
-                    QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-                    Page<User> userPage = userService.page(new Page<>(1, 20), queryWrapper);
-                    String redisKey = String.format("user:recommend:%s", userId);
-                    ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
-                    //写缓存
-                    try {
-                        //设置缓存，key为redisKey，value为userPage，过期时间为30000毫秒
-                        valueOperations.set(redisKey, userPage, 30000, TimeUnit.MICROSECONDS);
-                    } catch (Exception e) {
-                        //记录错误日志
-                        log.error("redis set error", e);
-                    }
-                }
-            }
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }finally {
-            if(lock.isHeldByCurrentThread()){
-                lock.unlock();
             }
         }
         synchronized (this) {

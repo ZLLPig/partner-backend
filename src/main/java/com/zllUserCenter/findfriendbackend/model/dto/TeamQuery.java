@@ -49,6 +49,11 @@ public class TeamQuery extends PageRequest {
      */
     private String description;
 
+    /**
+     * 用户是否已加入
+     */
+    private boolean hasJoin = false;
+
 
 
 }
